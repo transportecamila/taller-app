@@ -1,753 +1,949 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Taller — Carga de Facturas</title>
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
-<style>
-:root {
-  --bg:       #0F1923;
-  --bg2:      #182433;
-  --bg3:      #1E2E40;
-  --border:   #2A3F55;
-  --accent:   #00C2FF;
-  --accent2:  #0088CC;
-  --green:    #00D68F;
-  --amber:    #FFAA00;
-  --red:      #FF4D6A;
-  --text:     #E8F0F8;
-  --muted:    #7A9AB5;
-  --mono:     'IBM Plex Mono', monospace;
-  --sans:     'IBM Plex Sans', sans-serif;
-}
-* { box-sizing: border-box; margin: 0; padding: 0; }
-html, body { height: 100%; font-family: var(--sans); background: var(--bg); color: var(--text); font-size: 14px; }
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Taller â Carga de Facturas</title>
+  <!-- PDF.js para extraer texto de PDFs digitales -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <!-- Tesseract.js para OCR en fotos/escaneos (v4 â API estable) -->
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@4/dist/tesseract.min.js"></script>
+  <style>
+    :root {
+      --primary:       #1e3a5f;
+      --primary-light: #2d5a8e;
+      --accent:        #f59e0b;
+      --accent-dark:   #d97706;
+      --bg:            #f1f5f9;
+      --card:          #ffffff;
+      --text:          #1e293b;
+      --muted:         #64748b;
+      --border:        #e2e8f0;
+      --success:       #10b981;
+      --danger:        #ef4444;
+    }
 
-/* SCROLLBAR */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: var(--bg2); }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* TOPBAR */
-.topbar {
-  display: flex; align-items: center; gap: 14px;
-  padding: 0 24px; height: 56px;
-  background: var(--bg2); border-bottom: 1px solid var(--border);
-  position: sticky; top: 0; z-index: 100;
-}
-.topbar-logo { font-family: var(--mono); font-size: 13px; font-weight: 600; color: var(--accent); letter-spacing: 1px; }
-.topbar-sep { width: 1px; height: 20px; background: var(--border); }
-.topbar-title { font-size: 13px; color: var(--muted); }
-.topbar-date { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--muted); }
-.topbar-cat-btn {
-  margin-left: 12px; background: transparent; border: 1px solid var(--border);
-  color: var(--muted); border-radius: 6px; padding: 6px 14px; font-size: 12px;
-  cursor: pointer; font-family: var(--sans); transition: all .2s;
-  display: flex; align-items: center; gap: 6px;
-}
-.topbar-cat-btn:hover { border-color: var(--accent); color: var(--accent); }
-.cat-dot {
-  background: var(--accent); color: var(--bg); border-radius: 10px;
-  padding: 1px 6px; font-size: 10px; font-weight: 700; font-family: var(--mono);
-}
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
 
-/* STEPS */
-.steps {
-  display: flex; padding: 0 24px;
-  background: var(--bg2); border-bottom: 1px solid var(--border);
-}
-.step {
-  padding: 12px 20px; font-size: 11px; font-weight: 600; color: var(--muted);
-  border-bottom: 2px solid transparent; cursor: default; display: flex; align-items: center; gap: 7px;
-  letter-spacing: .5px; text-transform: uppercase; transition: all .2s;
-}
-.step.active { color: var(--accent); border-color: var(--accent); }
-.step.done   { color: var(--green);  border-color: var(--green); }
-.step-n {
-  width: 18px; height: 18px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
-  font-size: 10px; font-family: var(--mono); background: var(--border); color: var(--muted); transition: all .2s;
-}
-.step.active .step-n { background: var(--accent); color: var(--bg); }
-.step.done   .step-n { background: var(--green);  color: var(--bg); }
+    /* ââ HEADER âââââââââââââââââââââââââââââââââââââââ */
+    header {
+      background: var(--primary);
+      color: #fff;
+      padding: 0.9rem 2rem;
+      display: flex;
+      align-items: center;
+      gap: 0.9rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    }
+    .logo-icon {
+      width: 42px; height: 42px;
+      background: var(--accent);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.5rem; flex-shrink: 0;
+    }
+    header h1  { font-size: 1.15rem; font-weight: 700; letter-spacing: -.02em; }
+    header p   { font-size: .75rem; opacity: .65; margin-top: 1px; }
 
-/* MAIN */
-.main { max-width: 900px; margin: 0 auto; padding: 28px 20px; }
+    /* ââ NAV TABS ââââââââââââââââââââââââââââââââââââââ */
+    nav {
+      background: var(--primary-light);
+      display: flex;
+      padding: 0 1.5rem;
+    }
+    nav button {
+      background: none; border: none;
+      color: rgba(255,255,255,.65);
+      padding: .85rem 1.1rem;
+      font-size: .88rem; font-weight: 500;
+      cursor: pointer;
+      border-bottom: 3px solid transparent;
+      transition: all .18s;
+    }
+    nav button:hover  { color: #fff; }
+    nav button.active { color: var(--accent); border-bottom-color: var(--accent); }
 
-/* CARD */
-.card {
-  background: var(--bg2); border: 1px solid var(--border); border-radius: 10px;
-  padding: 22px; margin-bottom: 16px;
-}
-.card-title {
-  font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 18px;
-  display: flex; align-items: center; gap: 10px; letter-spacing: .3px;
-}
-.pill {
-  font-family: var(--mono); font-size: 10px; padding: 2px 8px; border-radius: 20px;
-  background: var(--bg3); color: var(--muted); border: 1px solid var(--border);
-}
-.pill.accent { background: rgba(0,194,255,.12); color: var(--accent); border-color: rgba(0,194,255,.3); }
-.pill.green  { background: rgba(0,214,143,.12); color: var(--green);  border-color: rgba(0,214,143,.3); }
-.pill.amber  { background: rgba(255,170,0,.12);  color: var(--amber);  border-color: rgba(255,170,0,.3); }
+    /* ââ LAYOUT ââââââââââââââââââââââââââââââââââââââââ */
+    main {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 1.75rem 1.5rem;
+    }
+    .tab-content          { display: none; }
+    .tab-content.active   { display: block; }
 
-/* UPLOAD ZONE */
-.upload-zone {
-  border: 2px dashed var(--border); border-radius: 10px;
-  padding: 48px 20px; text-align: center; cursor: pointer;
-  transition: all .2s; background: var(--bg3);
-}
-.upload-zone:hover, .upload-zone.drag {
-  border-color: var(--accent); background: rgba(0,194,255,.05);
-}
-.upload-icon { font-size: 38px; margin-bottom: 12px; }
-.upload-zone p { font-size: 13px; color: var(--muted); }
-.upload-zone strong { color: var(--accent); }
-.upload-hint { font-size: 11px; color: var(--border); margin-top: 6px; font-family: var(--mono); }
+    /* ââ CARD ââââââââââââââââââââââââââââââââââââââââââ */
+    .card {
+      background: var(--card);
+      border-radius: 12px;
+      padding: 1.4rem 1.5rem;
+      box-shadow: 0 1px 4px rgba(0,0,0,.07);
+      margin-bottom: 1.25rem;
+    }
+    .card-title {
+      font-size: .95rem; font-weight: 700;
+      color: var(--primary);
+      margin-bottom: 1rem;
+      display: flex; align-items: center; gap: .45rem;
+    }
 
-/* INPUTS */
-input, select {
-  background: var(--bg3); border: 1px solid var(--border); border-radius: 6px;
-  color: var(--text); padding: 7px 10px; font-size: 12px; font-family: var(--sans);
-  transition: border-color .15s;
-}
-input:focus, select:focus { outline: none; border-color: var(--accent); }
-input::placeholder { color: var(--muted); }
-label.field-label { font-size: 10px; font-weight: 700; color: var(--muted); display: block; margin-bottom: 4px; letter-spacing: .8px; text-transform: uppercase; }
+    /* ââ DROP ZONE âââââââââââââââââââââââââââââââââââââ */
+    .drop-zone {
+      border: 2px dashed var(--border);
+      border-radius: 10px;
+      padding: 2.75rem 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      transition: all .2s;
+      background: var(--bg);
+      user-select: none;
+    }
+    .drop-zone:hover,
+    .drop-zone.drag-over {
+      border-color: var(--accent);
+      background: #fffbeb;
+    }
+    .drop-zone .dz-icon { font-size: 2.8rem; margin-bottom: .6rem; }
+    .drop-zone h3 { font-size: 1rem; color: var(--primary); margin-bottom: .25rem; }
+    .drop-zone p  { font-size: .82rem; color: var(--muted); }
 
-/* BUTTONS */
-.btn { padding: 9px 20px; border-radius: 6px; font-size: 12px; font-weight: 600; cursor: pointer; border: none; transition: all .15s; font-family: var(--sans); letter-spacing: .3px; }
-.btn-primary { background: var(--accent); color: var(--bg); }
-.btn-primary:hover { background: #33CCFF; }
-.btn-primary:disabled { background: var(--border); color: var(--muted); cursor: not-allowed; }
-.btn-success { background: var(--green); color: var(--bg); }
-.btn-success:hover { background: #00FFAA; }
-.btn-ghost { background: transparent; border: 1px solid var(--border); color: var(--muted); }
-.btn-ghost:hover { border-color: var(--muted); color: var(--text); }
-.btn-sm { padding: 5px 12px; font-size: 11px; }
+    /* ââ PROGRESS ââââââââââââââââââââââââââââââââââââââ */
+    .progress-wrap { text-align: center; padding: 1.5rem 0; }
+    .progress-emoji { font-size: 2.2rem; margin-bottom: .5rem; }
+    .progress-label { font-size: .9rem; color: var(--text); margin-bottom: .6rem; font-weight: 500; }
+    .progress-detail { font-size: .78rem; color: var(--muted); margin-top: .25rem; min-height: 1.1em; }
+    .progress-bar-wrap {
+      background: var(--border); border-radius: 100px; height: 8px; overflow: hidden; margin: .5rem 0;
+    }
+    .progress-bar {
+      height: 100%; background: var(--accent); border-radius: 100px; transition: width .3s ease; width: 0%;
+    }
 
-/* ALERT */
-.alert { padding: 10px 14px; border-radius: 6px; font-size: 12px; margin-bottom: 14px; display: flex; gap: 8px; align-items: flex-start; }
-.alert-info    { background: rgba(0,194,255,.08);  border: 1px solid rgba(0,194,255,.2);  color: #7DCFEE; }
-.alert-warning { background: rgba(255,170,0,.08);  border: 1px solid rgba(255,170,0,.2);  color: var(--amber); }
-.alert-success { background: rgba(0,214,143,.08);  border: 1px solid rgba(0,214,143,.2);  color: var(--green); }
+    /* ââ BUTTONS âââââââââââââââââââââââââââââââââââââââ */
+    .btn {
+      display: inline-flex; align-items: center; gap: .35rem;
+      padding: .55rem 1.15rem;
+      border-radius: 8px;
+      font-size: .85rem; font-weight: 600;
+      cursor: pointer; border: none;
+      transition: all .15s; text-decoration: none;
+    }
+    .btn-primary   { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-light); }
+    .btn-accent    { background: var(--accent); color: #fff; }
+    .btn-accent:hover  { background: var(--accent-dark); }
+    .btn-outline   { background: transparent; color: var(--primary); border: 1.5px solid var(--border); }
+    .btn-outline:hover { border-color: var(--primary-light); }
+    .btn-danger    { background: transparent; color: var(--danger); border: 1.5px solid #fca5a5; }
+    .btn-danger:hover  { background: #fef2f2; }
+    .btn:disabled  { opacity: .45; cursor: not-allowed; }
 
-/* LOADING */
-.loading-wrap { text-align: center; padding: 48px 20px; }
-@keyframes spin { to { transform: rotate(360deg); } }
-.spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .7s linear infinite; margin: 0 auto 16px; }
-.loading-label { font-family: var(--mono); font-size: 12px; color: var(--muted); }
-.loading-sub { font-size: 11px; color: var(--border); margin-top: 6px; }
+    /* ââ ALERTS ââââââââââââââââââââââââââââââââââââââââ */
+    .alert {
+      border-radius: 8px; padding: .7rem 1rem;
+      font-size: .84rem; margin-bottom: 1rem;
+      display: flex; align-items: flex-start; gap: .45rem;
+    }
+    .alert-info    { background: #eff6ff; color: #1d4ed8; border: 1px solid #bfdbfe; }
+    .alert-success { background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }
+    .alert-warning { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; }
+    .alert-error   { background: #fef2f2; color: #991b1b; border: 1px solid #fecaca; }
 
-/* TABLE */
-.tbl-wrap { overflow-x: auto; }
-table { width: 100%; border-collapse: collapse; font-size: 12px; }
-th { background: var(--bg3); color: var(--muted); padding: 8px 10px; text-align: left; font-size: 10px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; border-bottom: 1px solid var(--border); white-space: nowrap; }
-td { padding: 6px 8px; border-bottom: 1px solid rgba(42,63,85,.5); vertical-align: middle; }
-tr:hover td { background: rgba(0,194,255,.03); }
-td input, td select { width: 100%; background: transparent; border: 1px solid transparent; padding: 3px 6px; }
-td input:focus, td select:focus { background: var(--bg3); border-color: var(--accent); border-radius: 4px; }
-td select { cursor: pointer; }
+    /* ââ RAW TEXT TOGGLE âââââââââââââââââââââââââââââââ */
+    .raw-toggle {
+      display: flex; justify-content: space-between; align-items: center;
+      cursor: pointer; user-select: none;
+    }
+    .raw-text {
+      background: var(--bg); border: 1px solid var(--border); border-radius: 8px;
+      padding: .85rem 1rem; margin-top: .75rem;
+      font-family: 'Courier New', monospace; font-size: .75rem;
+      max-height: 210px; overflow-y: auto; white-space: pre-wrap;
+      color: var(--muted); line-height: 1.55;
+    }
 
-/* TOTALS */
-.totals { display: flex; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
-.total-card { flex: 1; min-width: 130px; background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 12px 14px; }
-.total-card .tl { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: .6px; margin-bottom: 4px; }
-.total-card .tv { font-family: var(--mono); font-size: 20px; font-weight: 600; }
+    /* ââ ITEMS TABLE âââââââââââââââââââââââââââââââââââ */
+    .tbl-wrap { overflow-x: auto; }
+    table.items-tbl {
+      width: 100%; border-collapse: collapse; font-size: .86rem;
+    }
+    .items-tbl th {
+      background: var(--bg); color: var(--muted);
+      font-size: .75rem; font-weight: 700;
+      text-transform: uppercase; letter-spacing: .05em;
+      text-align: left; padding: .55rem .7rem;
+    }
+    .items-tbl td { padding: .5rem .7rem; border-bottom: 1px solid var(--border); vertical-align: middle; }
+    .items-tbl tr:last-child td { border-bottom: none; }
+    .items-tbl input[type="text"],
+    .items-tbl input[type="number"] {
+      border: 1px solid transparent; border-radius: 6px;
+      padding: .32rem .5rem; font-size: .86rem; width: 100%;
+      background: transparent; font-family: inherit; transition: all .15s;
+    }
+    .items-tbl input:hover { border-color: var(--border); }
+    .items-tbl input:focus { outline: none; border-color: var(--accent); background: #fffbeb; }
+    .del-btn {
+      background: none; border: none; color: var(--muted);
+      cursor: pointer; padding: 3px 5px; border-radius: 4px; font-size: .95rem;
+    }
+    .del-btn:hover { color: var(--danger); background: #fef2f2; }
 
-/* FOOTER ACTIONS */
-.footer-actions { display: flex; justify-content: space-between; align-items: center; margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--border); }
+    /* ââ ACTIONS ROW âââââââââââââââââââââââââââââââââââ */
+    .actions { display: flex; gap: .65rem; flex-wrap: wrap; margin-top: 1.1rem; }
 
-/* SUCCESS */
-.success-wrap { text-align: center; padding: 40px 20px; }
-.success-icon { font-size: 52px; margin-bottom: 14px; }
-.success-wrap h2 { font-size: 18px; font-weight: 700; color: var(--green); margin-bottom: 8px; }
-.success-wrap p { font-size: 13px; color: var(--muted); }
-.success-list { background: var(--bg3); border: 1px solid var(--border); border-radius: 8px; padding: 14px 18px; margin: 18px auto; max-width: 380px; text-align: left; list-style: none; }
-.success-list li { font-size: 12px; padding: 5px 0; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; }
-.success-list li:last-child { border: none; }
-.success-list li strong { font-family: var(--mono); color: var(--accent); }
+    /* ââ STATS âââââââââââââââââââââââââââââââââââââââââ */
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 1rem; margin-bottom: 1.25rem;
+    }
+    .stat-card {
+      background: var(--card); border-radius: 10px; padding: 1rem 1.25rem;
+      box-shadow: 0 1px 4px rgba(0,0,0,.06); text-align: center;
+    }
+    .stat-val   { font-size: 1.9rem; font-weight: 800; color: var(--primary); line-height: 1; }
+    .stat-label { font-size: .73rem; color: var(--muted); margin-top: .3rem; }
 
-/* CATALOG VIEW */
-.cat-empty { text-align: center; padding: 32px; color: var(--muted); font-size: 13px; }
+    /* ââ CATALOG âââââââââââââââââââââââââââââââââââââââ */
+    .cat-header {
+      display: flex; justify-content: space-between; align-items: center;
+      flex-wrap: wrap; gap: .75rem; margin-bottom: 1rem;
+    }
+    .cat-header-left { display: flex; align-items: center; gap: .6rem; flex-wrap: wrap; }
+    .cat-header-right { display: flex; gap: .6rem; flex-wrap: wrap; }
+    .search-input {
+      border: 1.5px solid var(--border); border-radius: 8px;
+      padding: .48rem .9rem; font-size: .86rem; width: 260px;
+    }
+    .search-input:focus { outline: none; border-color: var(--accent); }
+    .badge {
+      display: inline-block; background: var(--bg); border: 1px solid var(--border);
+      border-radius: 100px; padding: .18rem .6rem; font-size: .73rem; color: var(--muted);
+    }
+    .badge-accent { background: #fffbeb; border-color: #fde68a; color: var(--accent-dark); }
 
-/* STATUS BADGE */
-.badge { font-size: 10px; padding: 2px 8px; border-radius: 20px; font-weight: 700; font-family: var(--mono); white-space: nowrap; }
-.badge-new  { background: rgba(255,170,0,.15);  color: var(--amber); }
-.badge-upd  { background: rgba(0,214,143,.15);  color: var(--green); }
+    /* ââ EMPTY STATE âââââââââââââââââââââââââââââââââââ */
+    .empty-state { text-align: center; padding: 3rem 1rem; color: var(--muted); }
+    .empty-state .icon { font-size: 2.5rem; margin-bottom: .7rem; }
+    .empty-state p { font-size: .88rem; line-height: 1.6; }
 
-/* IVA TOGGLE */
-.iva-row { display: flex; align-items: center; gap: 10px; margin: 14px 0; padding: 10px 14px; background: var(--bg3); border-radius: 8px; border: 1px solid var(--border); }
-.toggle-wrap { position: relative; width: 34px; height: 18px; }
-.toggle-wrap input { opacity: 0; width: 0; height: 0; }
-.toggle-slider { position: absolute; inset: 0; background: var(--border); border-radius: 9px; cursor: pointer; transition: .2s; }
-.toggle-slider:before { content:''; position: absolute; width: 12px; height: 12px; left: 3px; top: 3px; background: white; border-radius: 50%; transition: .2s; }
-.toggle-wrap input:checked + .toggle-slider { background: var(--accent); }
-.toggle-wrap input:checked + .toggle-slider:before { transform: translateX(16px); }
-
-/* SYNC STATUS */
-.sync-status { font-family: var(--mono); font-size: 10px; display: flex; align-items: center; gap: 5px; }
-.sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; }
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.4} }
-.sync-dot.syncing { background: var(--amber); animation: spin .7s linear infinite; border-radius: 50%; }
-.sync-dot.error   { background: var(--red); animation: none; }
-
-.hidden { display: none !important; }
-</style>
+    /* ââ RESPONSIVE ââââââââââââââââââââââââââââââââââââ */
+    @media (max-width: 600px) {
+      header   { padding: .9rem 1rem; }
+      nav      { padding: 0 .75rem; }
+      main     { padding: 1rem; }
+      .search-input { width: 100%; }
+      .cat-header   { flex-direction: column; align-items: stretch; }
+    }
+  </style>
 </head>
 <body>
 
-<!-- TOPBAR -->
-<div class="topbar">
-  <div class="topbar-logo">🔧 TALLER</div>
-  <div class="topbar-sep"></div>
-  <div class="topbar-title">Carga de Facturas</div>
-  <div class="topbar-date" id="top-date"></div>
-  <div class="sync-status" id="sync-status">
-    <div class="sync-dot" id="sync-dot"></div>
-    <span id="sync-label">Sheets conectado</span>
+<header>
+  <div class="logo-icon">ð§</div>
+  <div>
+    <h1>Sistema de Taller</h1>
+    <p>Carga de Facturas Â· CatÃ¡logo de Repuestos</p>
   </div>
-  <button class="topbar-cat-btn" onclick="toggleCatalog()">
-    📦 Catálogo <span class="cat-dot" id="cat-count">0</span>
-  </button>
-</div>
+</header>
 
-<!-- STEPS -->
-<div class="steps">
-  <div class="step active" id="step-0"><div class="step-n">1</div> Subir factura</div>
-  <div class="step" id="step-1"><div class="step-n">2</div> Revisar ítems</div>
-  <div class="step" id="step-2"><div class="step-n">3</div> Confirmar</div>
-</div>
+<nav>
+  <button class="active" id="nav-cargar"   onclick="showTab('cargar',this)">ð¤ Cargar Factura</button>
+  <button            id="nav-catalogo" onclick="showTab('catalogo',this)">ð CatÃ¡logo</button>
+</nav>
 
-<!-- MAIN -->
-<div class="main">
+<main>
 
-  <!-- PANEL UPLOAD -->
-  <div id="panel-upload">
+  <!-- âââ TAB: CARGAR FACTURA ââââââââââââââââââââââââ -->
+  <div id="tab-cargar" class="tab-content active">
+
     <div class="card">
-      <div class="card-title">Subir factura <span class="pill accent">PDF o imagen</span></div>
-      <div class="upload-zone" id="drop-zone"
-        onclick="document.getElementById('file-inp').click()"
-        ondragover="event.preventDefault();this.classList.add('drag')"
-        ondragleave="this.classList.remove('drag')"
-        ondrop="handleDrop(event)">
-        <div class="upload-icon">📁</div>
-        <p>Arrastrá la factura acá o <strong>hacé clic para seleccionar</strong></p>
-        <div class="upload-hint">PDF · JPG · PNG — máx. 10 MB</div>
-        <input type="file" id="file-inp" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none" onchange="loadFile(this.files[0])">
+      <div class="card-title">ð Subir Factura</div>
+      <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()">
+        <div class="dz-icon">ð</div>
+        <h3>ArrastrÃ¡ la factura acÃ¡ o hacÃ© clic para seleccionar</h3>
+        <p>PDF digital Â· Foto Â· Escaneo (JPG, PNG, WEBP, BMP, TIFF)</p>
+        <br>
+        <span class="btn btn-accent" style="pointer-events:none; margin: 0 auto;">Seleccionar archivo</span>
+      </div>
+      <input type="file" id="fileInput" accept=".pdf,.jpg,.jpeg,.png,.webp,.bmp,.tiff,.tif" style="display:none">
+      <p style="font-size:.76rem; color:var(--muted); margin-top:.75rem; text-align:center;">
+        â 100% gratuito Â· Sin API externa Â· Procesado en tu navegador
+      </p>
+    </div>
+
+    <!-- Progreso -->
+    <div class="card" id="progressCard" style="display:none">
+      <div class="card-title" id="progressTitle">âï¸ Procesando</div>
+      <div class="progress-wrap">
+        <div class="progress-emoji" id="progressEmoji">ð</div>
+        <div class="progress-label"  id="progressLabel">Leyendo archivo...</div>
+        <div class="progress-bar-wrap"><div class="progress-bar" id="progressBar"></div></div>
+        <div class="progress-detail" id="progressDetail"></div>
+      </div>
+    </div>
+
+    <!-- Texto extraÃ­do (colapsable) -->
+    <div class="card" id="rawCard" style="display:none">
+      <div class="raw-toggle" onclick="toggleRaw()">
+        <span class="card-title" style="margin:0">ð Texto extraÃ­do de la factura</span>
+        <span id="rawIcon" style="font-size:.8rem; color:var(--muted);">â¼ Ver</span>
+      </div>
+      <div id="rawContent" style="display:none">
+        <div class="raw-text" id="rawText"></div>
+      </div>
+    </div>
+
+    <!-- RevisiÃ³n de Ã­tems -->
+    <div class="card" id="reviewCard" style="display:none">
+      <div class="card-title">â RevisÃ¡ y corregÃ­ los Ã­tems detectados</div>
+
+      <div class="alert alert-info">
+        ð¡ PodÃ©s editar cualquier campo antes de guardar. Los cambios no se guardan hasta que hagÃ¡s clic en <strong>Guardar en catÃ¡logo</strong>.
       </div>
 
-      <div id="file-preview" class="hidden" style="margin-top:18px;">
-        <div style="display:flex;gap:14px;align-items:flex-start;">
-          <img id="prev-img" style="width:72px;border-radius:6px;border:1px solid var(--border);" src="" alt="">
-          <div style="flex:1;">
-            <div id="prev-name" style="font-weight:700;font-size:13px;margin-bottom:3px;"></div>
-            <div id="prev-size" style="font-size:11px;color:var(--muted);font-family:var(--mono);"></div>
-            <div style="display:flex;gap:12px;margin-top:12px;flex-wrap:wrap;">
-              <div>
-                <label class="field-label">Proveedor</label>
-                <input id="inp-prov" placeholder="Nombre del proveedor" style="width:210px;">
-              </div>
-              <div>
-                <label class="field-label">N° Factura</label>
-                <input id="inp-nro" placeholder="0001-00012345" style="width:170px;">
-              </div>
-            </div>
-            <div style="margin-top:14px;display:flex;gap:8px;">
-              <button class="btn btn-primary" onclick="analizar()">🔍 Analizar con IA</button>
-              <button class="btn btn-ghost" onclick="resetApp()">Cambiar archivo</button>
-            </div>
-          </div>
+      <div id="reviewMsg"></div>
+
+      <div class="tbl-wrap">
+        <table class="items-tbl">
+          <thead>
+            <tr>
+              <th style="width:115px">CÃ³digo</th>
+              <th>DescripciÃ³n del repuesto</th>
+              <th style="width:75px; text-align:right">Cant.</th>
+              <th style="width:120px; text-align:right">Precio unit.</th>
+              <th style="width:36px"></th>
+            </tr>
+          </thead>
+          <tbody id="itemsBody"></tbody>
+        </table>
+      </div>
+
+      <div class="actions">
+        <button class="btn btn-outline" onclick="addEmptyRow()">ï¼ Agregar Ã­tem</button>
+        <button class="btn btn-accent"  onclick="saveItems()">ð¾ Guardar en catÃ¡logo</button>
+        <button class="btn btn-outline" onclick="resetUpload()">ð Nueva factura</button>
+      </div>
+    </div>
+
+  </div><!-- /tab-cargar -->
+
+  <!-- âââ TAB: CATÃLOGO ââââââââââââââââââââââââââââââ -->
+  <div id="tab-catalogo" class="tab-content">
+
+    <div class="stats">
+      <div class="stat-card">
+        <div class="stat-val"   id="statItems">0</div>
+        <div class="stat-label">Repuestos registrados</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val"   id="statInvoices">0</div>
+        <div class="stat-label">Facturas cargadas</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-val"   id="statDate">â</div>
+        <div class="stat-label">Ãltima actualizaciÃ³n</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="cat-header">
+        <div class="cat-header-left">
+          <span class="card-title" style="margin:0">ð CatÃ¡logo de repuestos</span>
+          <span class="badge" id="catCount">0 Ã­tems</span>
         </div>
-      </div>
-    </div>
-
-    <div class="alert alert-info">
-      💡 La IA extrae todos los ítems sin importar el formato del proveedor. Podés revisar y corregir antes de guardar en el catálogo.
-    </div>
-  </div>
-
-  <!-- PANEL LOADING -->
-  <div id="panel-loading" class="hidden">
-    <div class="card">
-      <div class="loading-wrap">
-        <div class="spinner"></div>
-        <div class="loading-label" id="loading-msg">Leyendo la factura...</div>
-        <div class="loading-sub">Esto puede tardar unos segundos</div>
-      </div>
-    </div>
-  </div>
-
-  <!-- PANEL REVIEW -->
-  <div id="panel-review" class="hidden">
-    <div id="ai-note" class="alert alert-warning hidden"></div>
-
-    <div class="card">
-      <div class="card-title">
-        Revisá los ítems extraídos
-        <span class="pill" id="badge-items"></span>
-      </div>
-
-      <!-- IVA TOGGLE -->
-      <div class="iva-row">
-        <label class="toggle-wrap">
-          <input type="checkbox" id="iva-toggle" onchange="toggleIVA(this.checked)">
-          <div class="toggle-slider"></div>
-        </label>
-        <div>
-          <div style="font-size:12px;font-weight:600;">Agregar IVA (21%)</div>
-          <div style="font-size:11px;color:var(--muted);">Activá si los precios de la factura no incluyen IVA</div>
+        <div class="cat-header-right">
+          <input type="text" class="search-input" id="searchInput"
+                 placeholder="ð Buscar..." oninput="filterCatalog()">
+          <button class="btn btn-outline" onclick="exportCSV()">â¬ Exportar CSV</button>
+          <button class="btn btn-danger"  onclick="clearCatalog()">ð Limpiar todo</button>
         </div>
-        <div style="margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--muted);" id="iva-label">IVA no aplicado</div>
       </div>
 
       <div class="tbl-wrap">
-        <table>
+        <table class="items-tbl" id="catalogTable">
           <thead>
             <tr>
-              <th>#</th>
-              <th>Descripción del repuesto</th>
-              <th>Cant.</th>
-              <th>Unidad</th>
-              <th>Precio unit. ($)</th>
-              <th>Subtotal ($)</th>
-              <th>Catálogo</th>
+              <th>CÃ³digo</th>
+              <th>DescripciÃ³n</th>
+              <th style="text-align:right">Ãltimo precio</th>
+              <th>Ãlt. factura</th>
+              <th style="text-align:center">Veces</th>
               <th></th>
             </tr>
           </thead>
-          <tbody id="items-body"></tbody>
+          <tbody id="catalogBody"></tbody>
         </table>
       </div>
-
-      <button class="btn btn-ghost btn-sm" onclick="addRow()" style="margin-top:10px;">+ Agregar ítem</button>
-
-      <div class="totals" id="totals"></div>
-    </div>
-
-    <div class="footer-actions">
-      <button class="btn btn-ghost" onclick="resetApp()">← Volver</button>
-      <button class="btn btn-success" onclick="confirmar()">✓ Confirmar y guardar en catálogo</button>
-    </div>
-  </div>
-
-  <!-- PANEL SUCCESS -->
-  <div id="panel-success" class="hidden">
-    <div class="card">
-      <div class="success-wrap">
-        <div class="success-icon">✅</div>
-        <h2>Factura procesada</h2>
-        <p>El catálogo fue actualizado en Google Sheets. Ya podés digitalizar las OT del día.</p>
-        <ul class="success-list" id="success-list"></ul>
-        <div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
-          <button class="btn btn-primary" onclick="resetApp()">📄 Cargar otra factura</button>
-          <button class="btn btn-ghost" onclick="toggleCatalog()">📦 Ver catálogo</button>
-        </div>
+      <div class="empty-state" id="catEmpty" style="display:none">
+        <div class="icon">ð¦</div>
+        <p>El catÃ¡logo estÃ¡ vacÃ­o.<br>CargÃ¡ una factura para empezar a registrar repuestos.</p>
       </div>
     </div>
-  </div>
 
-  <!-- PANEL CATALOG -->
-  <div id="panel-catalog" class="hidden">
-    <div class="card">
-      <div class="card-title">
-        Catálogo de repuestos
-        <span class="pill accent" id="cat-badge"></span>
-        <button class="btn btn-ghost btn-sm" onclick="loadCatalog(true)" style="margin-left:auto;">↻ Actualizar</button>
-      </div>
-      <div class="alert alert-info" style="margin-bottom:14px;">
-        📊 Los datos se guardan en Google Sheets y son accesibles desde cualquier computadora.
-      </div>
-      <div class="tbl-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Código</th><th>Descripción</th><th>Último precio ($)</th>
-              <th>Última compra</th><th>Proveedor</th><th>Usos</th>
-            </tr>
-          </thead>
-          <tbody id="cat-body"></tbody>
-        </table>
-      </div>
-      <div style="margin-top:16px;">
-        <button class="btn btn-ghost" onclick="toggleCatalog()">← Volver</button>
-      </div>
-    </div>
-  </div>
+  </div><!-- /tab-catalogo -->
 
-</div>
+</main>
 
 <script>
-// ── CONFIG ───────────────────────────────────────────────────────────────────
-const SHEET_ID  = '1uR0zD0voO1M5Nn5TbEgPfd6NqgyE20MKoEbjljLilGk';
-const API_KEY   = 'AIzaSyAaURjUzd8bpYfCh_xtynldA6Xk6EGu2nQ';
-const SHEET_NAME = 'Catalogo';
-const BASE_URL  = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}`;
-
-// ── STATE ────────────────────────────────────────────────────────────────────
-let fileB64=null, fileMime=null, fileIsImg=false;
-let rawItems=[];   // precios originales sin IVA
-let items=[];      // precios con o sin IVA según toggle
-let ivaActive=false;
-let catalog=[];
-let prevPanel='panel-upload';
-let catalogVisible=false;
-
-// ── INIT ─────────────────────────────────────────────────────────────────────
-document.getElementById('top-date').textContent =
-  new Date().toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
-
-loadCatalog(false);
-
-// ── GOOGLE SHEETS ─────────────────────────────────────────────────────────────
-async function sheetsGet(range) {
-  const url = `${BASE_URL}/values/${encodeURIComponent(range)}?key=${API_KEY}`;
-  const r = await fetch(url);
-  if (!r.ok) throw new Error('Error leyendo Sheets: ' + r.status);
-  return r.json();
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââ
+   CONFIGURACIÃN PDF.js
+   El global se llama pdfjsLib cuando se carga desde cdnjs
+âââââââââââââââââââââââââââââââââââââââââââââââââââ */
+function getPdfjsLib() {
+  // cdnjs expone el global como pdfjsLib
+  return window.pdfjsLib || window['pdfjs-dist/build/pdf'] || null;
+}
+const _pdfLib = getPdfjsLib();
+if (_pdfLib) {
+  _pdfLib.GlobalWorkerOptions.workerSrc =
+    'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 }
 
-async function sheetsAppend(range, values) {
-  const url = `${BASE_URL}/values/${encodeURIComponent(range)}:append?valueInputOption=USER_ENTERED&key=${API_KEY}`;
-  const r = await fetch(url, {
-    method:'POST', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ values })
-  });
-  if (!r.ok) throw new Error('Error escribiendo Sheets: ' + r.status);
-  return r.json();
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââ
+   ESTADO GLOBAL
+âââââââââââââââââââââââââââââââââââââââââââââââââââ */
+let currentItems   = [];
+let catalogData    = {};
+let invoiceCount   = 0;
+
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââ
+   NAVEGACIÃN
+âââââââââââââââââââââââââââââââââââââââââââââââââââ */
+function showTab(name, btn) {
+  document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+  document.querySelectorAll('nav button').forEach(el => el.classList.remove('active'));
+  document.getElementById('tab-' + name).classList.add('active');
+  btn.classList.add('active');
+  if (name === 'catalogo') renderCatalog();
 }
 
-async function sheetsUpdate(range, values) {
-  const url = `${BASE_URL}/values/${encodeURIComponent(range)}?valueInputOption=USER_ENTERED&key=${API_KEY}`;
-  const r = await fetch(url, {
-    method:'PUT', headers:{'Content-Type':'application/json'},
-    body: JSON.stringify({ values })
-  });
-  if (!r.ok) throw new Error('Error actualizando Sheets: ' + r.status);
-  return r.json();
-}
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââ
+   DRAG & DROP / INPUT
+âââââââââââââââââââââââââââââââââââââââââââââââââââ */
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
 
-async function ensureHeaders() {
-  try {
-    const data = await sheetsGet(`${SHEET_NAME}!A1:F1`);
-    if (!data.values || data.values.length === 0) {
-      await sheetsAppend(`${SHEET_NAME}!A1`, [
-        ['Codigo','Descripcion','Precio Unitario','Ultima Compra','Proveedor','Veces Usado']
-      ]);
-    }
-  } catch(e) {
-    // Hoja puede no existir todavía, se crea al primer append
-  }
-}
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  const f = e.dataTransfer.files[0]; if (f) processFile(f);
+});
+fileInput.addEventListener('change', e => { if (e.target.files[0]) processFile(e.target.files[0]); });
 
-async function loadCatalog(showFeedback=true) {
-  setSyncStatus('syncing','Sincronizando...');
-  try {
-    await ensureHeaders();
-    const data = await sheetsGet(`${SHEET_NAME}!A2:F1000`);
-    catalog = (data.values || []).map((row, i) => ({
-      row: i + 2, // fila real en sheet (1=header, 2=primera data)
-      codigo:          row[0] || '',
-      descripcion:     row[1] || '',
-      precio_unitario: parseFloat(row[2]) || 0,
-      ultima_compra:   row[3] || '',
-      proveedor:       row[4] || '',
-      veces_usado:     parseInt(row[5]) || 0,
-    })).filter(c => c.descripcion.trim());
-    document.getElementById('cat-count').textContent = catalog.length;
-    setSyncStatus('ok', 'Sheets conectado');
-    if (catalogVisible) renderCatalogTable();
-    if (showFeedback) renderCatalogTable();
-  } catch(e) {
-    setSyncStatus('error', 'Error de conexión');
-    if (showFeedback) alert('No se pudo conectar con Google Sheets: ' + e.message);
-  }
-}
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââ
+   PROCESAR ARCHIVO
+âââââââââââââââââââââââââââââââââââââââââââââââââââ */
+async function processFile(file) {
+  resetUpload();
 
-function setSyncStatus(state, label) {
-  const dot = document.getElementById('sync-dot');
-  const lbl = document.getElementById('sync-label');
-  dot.className = 'sync-dot' + (state==='syncing'?' syncing':state==='error'?' error':'');
-  lbl.textContent = label;
-}
+  const isPDF   = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+  const isImage = file.type.startsWith('image/') || /\.(jpe?g|png|webp|bmp|tiff?)$/i.test(file.name);
 
-function matchCat(desc) {
-  if (!desc) return null;
-  const n = desc.toLowerCase().trim();
-  return catalog.find(c => c.descripcion.toLowerCase().trim() === n) || null;
-}
-
-// ── FILE ─────────────────────────────────────────────────────────────────────
-function handleDrop(e) {
-  e.preventDefault();
-  document.getElementById('drop-zone').classList.remove('drag');
-  if (e.dataTransfer.files[0]) loadFile(e.dataTransfer.files[0]);
-}
-
-function loadFile(f) {
-  if (!f) return;
-  if (f.size > 10*1024*1024) { alert('Máximo 10 MB'); return; }
-  fileMime = f.type; fileIsImg = f.type.startsWith('image/');
-  const reader = new FileReader();
-  reader.onload = ev => {
-    fileB64 = ev.target.result.split(',')[1];
-    document.getElementById('prev-name').textContent = f.name;
-    document.getElementById('prev-size').textContent = (f.size/1024).toFixed(1) + ' KB · ' + f.type;
-    const img = document.getElementById('prev-img');
-    img.src = fileIsImg ? ev.target.result :
-      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 60 75'%3E%3Crect width='60' height='75' rx='5' fill='%23182433'/%3E%3Crect x='1' y='1' width='58' height='73' rx='4' fill='none' stroke='%232A3F55' stroke-width='1'/%3E%3Ctext x='30' y='38' text-anchor='middle' fill='%2300C2FF' font-size='10' font-family='monospace'%3EPDF%3C/text%3E%3C/svg%3E";
-    document.getElementById('drop-zone').style.display = 'none';
-    document.getElementById('file-preview').classList.remove('hidden');
-  };
-  reader.readAsDataURL(f);
-}
-
-// ── ANALIZAR ──────────────────────────────────────────────────────────────────
-async function analizar() {
-  if (!fileB64) return;
-  setStep(1); showPanel('panel-loading');
-  const msgs = ['Leyendo la factura...','Identificando ítems...','Extrayendo precios...','Casi listo...'];
-  let mi = 0;
-  document.getElementById('loading-msg').textContent = msgs[0];
-  const iv = setInterval(() => {
-    document.getElementById('loading-msg').textContent = msgs[Math.min(++mi, msgs.length-1)];
-  }, 2000);
-
-  const prov = document.getElementById('inp-prov').value || 'desconocido';
-  const system = `Sos un asistente que lee facturas de repuestos para camiones. Respondé ÚNICAMENTE con JSON válido, sin markdown ni texto extra.
-Formato exacto:
-{"proveedor":"","numero_factura":"","fecha_factura":"","items":[{"descripcion":"","cantidad":1,"unidad":"un","precio_unitario":0.00}],"notas":""}
-Reglas: normalizá descripciones en español claro y conciso. No incluyas impuestos, descuentos ni subtotales como ítems. precio_unitario es el precio por unidad. Si no podés leer un valor con certeza usá 0.`;
-
-  try {
-    const resp = await fetch('/.netlify/functions/analizar', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514', max_tokens: 1000, system,
-        messages: [{ role: 'user', content: [
-          { type: fileIsImg?'image':'document', source: { type:'base64', media_type:fileMime, data:fileB64 } },
-          { type: 'text', text: `Factura del proveedor "${prov}". Extraé todos los ítems de repuestos.` }
-        ]}]
-      })
-    });
-    clearInterval(iv);
-    const data = await resp.json();
-    const raw = data.content.map(b => b.text||'').join('');
-    const parsed = JSON.parse(raw.replace(/```json|```/g,'').trim());
-
-    if (parsed.proveedor && !document.getElementById('inp-prov').value)
-      document.getElementById('inp-prov').value = parsed.proveedor;
-    if (parsed.numero_factura && !document.getElementById('inp-nro').value)
-      document.getElementById('inp-nro').value = parsed.numero_factura;
-
-    const note = document.getElementById('ai-note');
-    if (parsed.notas) { note.innerHTML = '⚠️ ' + parsed.notas; note.classList.remove('hidden'); }
-    else note.classList.add('hidden');
-
-    rawItems = (parsed.items||[]).map((it,i) => ({
-      id:i, descripcion:it.descripcion||'', cantidad:parseFloat(it.cantidad)||1,
-      unidad:it.unidad||'un', precio_unitario:parseFloat(it.precio_unitario)||0
-    }));
-    ivaActive = false;
-    document.getElementById('iva-toggle').checked = false;
-    document.getElementById('iva-label').textContent = 'IVA no aplicado';
-    items = rawItems.map(it => ({...it}));
-    renderItems();
-    setStep(2); showPanel('panel-review');
-  } catch(err) {
-    clearInterval(iv);
-    setStep(0); showPanel('panel-upload');
-    alert('Error al analizar: ' + err.message);
-  }
-}
-
-// ── IVA ───────────────────────────────────────────────────────────────────────
-function toggleIVA(on) {
-  ivaActive = on;
-  document.getElementById('iva-label').textContent = on ? 'IVA 21% aplicado' : 'IVA no aplicado';
-  items = rawItems.map(it => ({
-    ...it,
-    precio_unitario: on ? parseFloat((it.precio_unitario * 1.21).toFixed(2)) : it.precio_unitario
-  }));
-  renderItems();
-}
-
-// ── ITEMS ─────────────────────────────────────────────────────────────────────
-function renderItems() {
-  document.getElementById('badge-items').textContent = items.length + ' ítems';
-  const tbody = document.getElementById('items-body');
-  tbody.innerHTML = '';
-  items.forEach((it, i) => {
-    const isNew = !matchCat(it.descripcion);
-    const sub = it.cantidad * it.precio_unitario;
-    const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td style="font-family:var(--mono);color:var(--accent);font-weight:600;">${i+1}</td>
-      <td><input value="${escH(it.descripcion)}" onchange="items[${i}].descripcion=this.value;rawItems[${i}].descripcion=this.value;renderTotals()"></td>
-      <td><input type="number" value="${it.cantidad}" min="0.01" step="any" style="width:64px;"
-            onchange="updateQty(${i},this.value)"></td>
-      <td><select onchange="items[${i}].unidad=this.value;rawItems[${i}].unidad=this.value">
-        ${['un','kg','lt','m','set','par','caja'].map(u=>`<option${u===it.unidad?' selected':''}>${u}</option>`).join('')}
-      </select></td>
-      <td><input type="number" value="${it.precio_unitario}" min="0" step="0.01" style="width:100px;"
-            onchange="updatePrice(${i},this.value)"></td>
-      <td id="sub${i}" style="font-family:var(--mono);font-weight:600;white-space:nowrap;">$${fmtARS(sub)}</td>
-      <td><span class="badge ${isNew?'badge-new':'badge-upd'}">${isNew?'★ Nuevo':'↑ Actualiza'}</span></td>
-      <td><button onclick="items.splice(${i},1);rawItems.splice(${i},1);renderItems()"
-            style="background:none;border:none;color:var(--red);cursor:pointer;font-size:13px;padding:2px 6px;">✕</button></td>`;
-    tbody.appendChild(tr);
-  });
-  renderTotals();
-}
-
-function updateQty(i, val) {
-  const q = parseFloat(val) || 1;
-  rawItems[i].cantidad = q; items[i].cantidad = q;
-  document.getElementById('sub'+i).textContent = '$' + fmtARS(items[i].cantidad * items[i].precio_unitario);
-  renderTotals();
-}
-function updatePrice(i, val) {
-  const p = parseFloat(val) || 0;
-  items[i].precio_unitario = p;
-  // Actualizar raw según si IVA está activo
-  rawItems[i].precio_unitario = ivaActive ? parseFloat((p/1.21).toFixed(4)) : p;
-  document.getElementById('sub'+i).textContent = '$' + fmtARS(items[i].cantidad * p);
-  renderTotals();
-}
-function addRow() {
-  const newIt = {id:Date.now(), descripcion:'', cantidad:1, unidad:'un', precio_unitario:0};
-  rawItems.push({...newIt}); items.push({...newIt});
-  renderItems();
-}
-function renderTotals() {
-  const total = items.reduce((a,it) => a + it.cantidad*it.precio_unitario, 0);
-  const nuevos = items.filter(it => !matchCat(it.descripcion)).length;
-  document.getElementById('totals').innerHTML = [
-    {l:'Ítems',       v: items.length,               c:'var(--text)'},
-    {l:'Total factura',v:'$'+fmtARS(total),            c:'var(--accent)'},
-    {l:'Actualizan',  v: items.length - nuevos,       c:'var(--green)'},
-    {l:'Nuevos',      v: nuevos,                      c:'var(--amber)'},
-  ].map(t=>`<div class="total-card"><div class="tl">${t.l}</div><div class="tv" style="color:${t.c}">${t.v}</div></div>`).join('');
-}
-
-// ── CONFIRMAR Y GUARDAR EN SHEETS ─────────────────────────────────────────────
-async function confirmar() {
-  const btn = document.querySelector('.btn-success');
-  btn.disabled = true; btn.textContent = 'Guardando...';
-  setSyncStatus('syncing', 'Guardando en Sheets...');
-
-  const hoy = new Date().toLocaleDateString('es-AR');
-  const prov = document.getElementById('inp-prov').value || 'Desconocido';
-  const nro  = document.getElementById('inp-nro').value || '-';
-  let nuevos = 0, actualizados = 0;
-
-  try {
-    await ensureHeaders();
-    // Recargar catálogo fresco antes de guardar
-    await loadCatalog(false);
-
-    for (const it of items) {
-      if (!it.descripcion.trim()) continue;
-      const existing = matchCat(it.descripcion);
-      if (existing) {
-        // Actualizar fila existente
-        const veces = (existing.veces_usado || 0) + 1;
-        await sheetsUpdate(
-          `${SHEET_NAME}!A${existing.row}:F${existing.row}`,
-          [[existing.codigo, it.descripcion, it.precio_unitario, hoy, prov, veces]]
-        );
-        actualizados++;
-      } else {
-        // Agregar fila nueva
-        const codigo = 'REP-' + String(catalog.length + nuevos + 1).padStart(4,'0');
-        await sheetsAppend(`${SHEET_NAME}!A:F`, [[codigo, it.descripcion, it.precio_unitario, hoy, prov, 1]]);
-        nuevos++;
-      }
-    }
-
-    await loadCatalog(false);
-    const total = items.reduce((a,it) => a + it.cantidad*it.precio_unitario, 0);
-
-    document.getElementById('success-list').innerHTML = [
-      ['📄 Factura', nro], ['🏪 Proveedor', prov],
-      ['📦 Ítems procesados', items.length],
-      ['★ Nuevos en catálogo', nuevos],
-      ['↑ Precios actualizados', actualizados],
-      ['💰 Total factura', '$'+fmtARS(total)],
-      ['📊 Guardado en', 'Google Sheets ✓'],
-    ].map(([k,v]) => `<li><span>${k}</span><strong>${v}</strong></li>`).join('');
-
-    setStep(3); showPanel('panel-success');
-    setSyncStatus('ok', 'Sheets sincronizado');
-  } catch(err) {
-    setSyncStatus('error', 'Error al guardar');
-    alert('Error al guardar en Google Sheets: ' + err.message + '\n\nVerificá que la API key tenga permisos de escritura.');
-  } finally {
-    btn.disabled = false; btn.textContent = '✓ Confirmar y guardar en catálogo';
-  }
-}
-
-// ── CATALOG VIEW ──────────────────────────────────────────────────────────────
-function toggleCatalog() {
-  catalogVisible = !catalogVisible;
-  const pc = document.getElementById('panel-catalog');
-  if (catalogVisible) {
-    ['panel-upload','panel-loading','panel-review','panel-success'].forEach(p =>
-      document.getElementById(p).classList.add('hidden'));
-    pc.classList.remove('hidden');
-    loadCatalog(true);
-  } else {
-    pc.classList.add('hidden');
-    document.getElementById(prevPanel).classList.remove('hidden');
-  }
-}
-
-function renderCatalogTable() {
-  document.getElementById('cat-badge').textContent = catalog.length + ' repuestos';
-  const tbody = document.getElementById('cat-body');
-  if (catalog.length === 0) {
-    tbody.innerHTML = '<tr><td colspan="6"><div class="cat-empty">No hay repuestos todavía. Cargá una factura primero.</div></td></tr>';
+  if (!isPDF && !isImage) {
+    alert('Formato no compatible. UsÃ¡ PDF, JPG, PNG o WEBP.');
     return;
   }
-  tbody.innerHTML = catalog.map((c,i) => `
-    <tr>
-      <td style="font-family:var(--mono);font-size:10px;color:var(--muted);">${escH(c.codigo)}</td>
-      <td style="font-weight:600;">${escH(c.descripcion)}</td>
-      <td style="font-family:var(--mono);font-weight:600;color:var(--accent);">$${fmtARS(c.precio_unitario)}</td>
-      <td style="color:var(--muted);font-family:var(--mono);font-size:11px;">${escH(c.ultima_compra||'-')}</td>
-      <td style="color:var(--muted);">${escH(c.proveedor||'-')}</td>
-      <td style="text-align:center;font-family:var(--mono);color:var(--muted);">${c.veces_usado||1}</td>
-    </tr>`).join('');
+
+  document.getElementById('progressCard').style.display = 'block';
+
+  try {
+    let rawText = '';
+
+    if (isPDF) {
+      rawText = await extractPDF(file);
+    } else {
+      rawText = await extractImage(file);
+    }
+
+    // Mostrar texto extraÃ­do
+    document.getElementById('rawText').textContent = rawText || '(sin texto detectado)';
+    document.getElementById('rawCard').style.display = 'block';
+
+    setProgress(82, 'ð Detectando Ã­tems...', '');
+    await sleep(300);
+
+    currentItems = parseInvoice(rawText);
+
+    setProgress(100, 'â Listo', '');
+    await sleep(500);
+
+    document.getElementById('progressCard').style.display = 'none';
+    showReview(currentItems);
+
+  } catch (err) {
+    console.error(err);
+    document.getElementById('progressEmoji').textContent = 'â';
+    setProgress(0, 'Error: ' + err.message, 'AbrÃ­ la consola del navegador (F12 â Console) para mÃ¡s detalles.');
+    document.getElementById('reviewCard').style.display = 'block';
+    document.getElementById('reviewMsg').innerHTML = `<div class="alert alert-error">
+      â <strong>Error al procesar el archivo:</strong> ${err.message}<br>
+      <small>PodÃ©s agregar los Ã­tems manualmente mientras tanto.</small>
+    </div>`;
+    addEmptyRow();
+  }
 }
 
-// ── HELPERS ───────────────────────────────────────────────────────────────────
-function showPanel(id) {
-  ['panel-upload','panel-loading','panel-review','panel-success'].forEach(p =>
-    document.getElementById(p).classList.add('hidden'));
-  document.getElementById(id).classList.remove('hidden');
-  prevPanel = id;
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââ
+   EXTRACCIÃN PDF (PDF.js)
+âââââââââââââââââââââââââââââââââââââââââââââââââââ */
+async function extractPDF(file) {
+  setProgress(8, 'ð Cargando PDF...', file.name);
+
+  const pdfjsLib = getPdfjsLib();
+  if (!pdfjsLib) throw new Error('PDF.js no se cargÃ³ correctamente. RevisÃ¡ la conexiÃ³n a internet.');
+
+  const buffer = await file.arrayBuffer();
+  const pdf    = await pdfjsLib.getDocument({ data: new Uint8Array(buffer) }).promise;
+
+  let fullText = '';
+
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const pct = 8 + (p / pdf.numPages) * 62;
+    setProgress(pct, `ð Leyendo pÃ¡gina ${p} de ${pdf.numPages}...`, '');
+
+    const page    = await pdf.getPage(p);
+    const content = await page.getTextContent();
+
+    // Agrupar Ã­tems por posiciÃ³n Y para reconstruir lÃ­neas
+    const byY = {};
+    for (const item of content.items) {
+      if (!item.str.trim()) continue;
+      const y = Math.round(item.transform[5]);
+      (byY[y] = byY[y] || []).push({ x: item.transform[4], t: item.str });
+    }
+
+    const ys = Object.keys(byY).map(Number).sort((a, b) => b - a);
+    for (const y of ys) {
+      const line = byY[y].sort((a, b) => a.x - b.x).map(i => i.t).join('  ');
+      fullText += line + '\n';
+    }
+    if (p < pdf.numPages) fullText += '\n';
+  }
+
+  return fullText;
 }
-function setStep(n) {
-  [0,1,2].forEach(i => {
-    const el = document.getElementById('step-'+i);
-    const num = el.querySelector('.step-n');
-    el.className = 'step' + (i<n?' done':i===n?' active':'');
-    num.textContent = i < n ? '✓' : String(i+1);
+
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââ
+   OCR IMAGEN (Tesseract.js v5)
+âââââââââââââââââââââââââââââââââââââââââââââââââââ */
+async function extractImage(file) {
+  setProgress(5, 'ð¼ Preparando imagen...', file.name);
+
+  // Tesseract.js v4 â usa espaÃ±ol + inglÃ©s para facturas argentinas
+  const worker = await Tesseract.createWorker({
+    logger: msg => {
+      if (msg.status === 'loading language traineddata') {
+        setProgress(12, 'ð¥ Descargando modelo de idioma...', 'Solo la primera vez (~8 MB)');
+      } else if (msg.status === 'initializing api') {
+        setProgress(18, 'âï¸ Iniciando OCR...', '');
+      } else if (msg.status === 'recognizing text') {
+        const pct = 22 + msg.progress * 55;
+        setProgress(pct, 'ð Reconociendo texto...', Math.round(msg.progress * 100) + '%');
+      }
+    }
   });
+
+  await worker.loadLanguage('spa');
+  await worker.initialize('spa');
+
+  const url    = URL.createObjectURL(file);
+  const result = await worker.recognize(url);
+  await worker.terminate();
+  URL.revokeObjectURL(url);
+
+  return result.data.text;
 }
-function resetApp() {
-  fileB64=null; fileMime=null; fileIsImg=false; rawItems=[]; items=[];
-  document.getElementById('file-inp').value='';
-  document.getElementById('inp-prov').value='';
-  document.getElementById('inp-nro').value='';
-  document.getElementById('drop-zone').style.display='';
-  document.getElementById('file-preview').classList.add('hidden');
-  document.getElementById('panel-catalog').classList.add('hidden');
-  catalogVisible=false;
-  setStep(0); showPanel('panel-upload');
+
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââ
+   PARSER DE FACTURA ARGENTINA
+âââââââââââââââââââââââââââââââââââââââââââââââââââ */
+
+// LÃ­neas de encabezado / pie que hay que ignorar
+const SKIP_RE = [
+  /^\s*(cÃ³digo|cod\.?|art\.?|Ã­tem|item|n[Â°Âº])\s+(descripci[oÃ³]n|detalle|concepto|producto)/i,
+  /^\s*(descripci[oÃ³]n|detalle|producto)\s+(cant|cantidad|u\.?m\.?)/i,
+  /^\s*cant(idad)?\s+(descripci[oÃ³]n|precio|p\.?u)/i,
+  /^\s*(total|subtotal|neto\s+gravado|neto|imponible)\s*:?\s*\$?\s*[\d.,]/i,
+  /^\s*i\.?v\.?a\.?\s*\d*\s*%?\s*:?\s*\$?\s*[\d.,]/i,
+  /^\s*(descuento|bonificaci[oÃ³]n)\s*:?\s*/i,
+  /^\s*(raz[oÃ³]n social|cuit|fecha|factura[:\s]|remito|nÃºmero de)/i,
+  /^\s*p[aÃ¡]gina\s+\d+/i,
+  /^\s*condici[oÃ³]n de pago/i,
+  /^\s*(domicilio|tel[eÃ©]fono|e-?mail|direcci[oÃ³]n)\s*:/i,
+  /^\s*precio unitario\s*/i,
+  /^\s*---/,
+  /^\s*\*{3,}/,
+];
+
+function isSkipLine(line) {
+  return SKIP_RE.some(r => r.test(line));
 }
-function fmtARS(n){ return Number(n||0).toLocaleString('es-AR',{minimumFractionDigits:2}); }
-function escH(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// Parsear nÃºmero argentino: 1.234,56 o 1,234.56 o 1234,56
+function parseNum(s) {
+  if (!s) return null;
+  s = s.replace(/[$\s]/g, '');
+  if (!s || !/\d/.test(s)) return null;
+
+  const ci = s.lastIndexOf(',');
+  const di = s.lastIndexOf('.');
+
+  if (ci > -1 && di > -1) {
+    // Ambos: el Ãºltimo es el decimal
+    return ci > di
+      ? parseFloat(s.replace(/\./g, '').replace(',', '.'))   // 1.234,56
+      : parseFloat(s.replace(/,/g, ''));                       // 1,234.56
+  }
+  if (ci > -1) {
+    // Solo coma: si hay exactamente 2 decimales â decimal
+    return s.split(',')[1]?.length <= 2
+      ? parseFloat(s.replace(',', '.'))
+      : parseFloat(s.replace(/,/g, ''));
+  }
+  if (di > -1) {
+    return s.split('.')[1]?.length <= 2
+      ? parseFloat(s)
+      : parseFloat(s.replace(/\./g, ''));
+  }
+  return parseFloat(s);
+}
+
+// PatrÃ³n de precio en una lÃ­nea
+const PRICE_RE = /\$?\s*(\d{1,3}(?:[.,]\d{3})*[.,]\d{2}|\d+[.,]\d{2}|\d{4,})/g;
+
+function extractItem(line) {
+  // Encontrar todos los nÃºmeros que parecen precios
+  const prices = [];
+  let m;
+  PRICE_RE.lastIndex = 0;
+  while ((m = PRICE_RE.exec(line)) !== null) {
+    const v = parseNum(m[1]);
+    if (v !== null && !isNaN(v) && v > 0 && v < 10_000_000) {
+      prices.push({ v, idx: m.index });
+    }
+  }
+
+  if (prices.length === 0) return null;
+
+  // Texto antes del primer precio â descripciÃ³n (+ posible cÃ³digo)
+  let textPart = line.substring(0, prices[0].idx).trim().replace(/\s{2,}/g, ' ');
+  if (!textPart || textPart.length < 3) return null;
+
+  // Separar cÃ³digo de descripciÃ³n
+  let codigo = '', descripcion = textPart;
+  const codeMatch = textPart.match(/^([A-Z0-9\-\.]{2,15})\s+(.{4,})$/i);
+  if (codeMatch && /\d/.test(codeMatch[1]) && codeMatch[1].length <= 12) {
+    codigo      = codeMatch[1].trim().toUpperCase();
+    descripcion = codeMatch[2].trim();
+  }
+
+  // Precio unitario: Ãºltimo precio disponible
+  const precioUnitario = prices[prices.length - 1].v;
+
+  // Cantidad: si hay â¥2 precios y el primero es un entero pequeÃ±o
+  let cantidad = 1;
+  if (prices.length >= 2 && prices[0].v <= 100 && Number.isInteger(prices[0].v)) {
+    cantidad = prices[0].v;
+  }
+
+  if (descripcion.length < 3 || descripcion.length > 180) return null;
+
+  return {
+    codigo,
+    descripcion: descripcion.toUpperCase().trim(),
+    cantidad,
+    precioUnitario,
+  };
+}
+
+function parseInvoice(text) {
+  if (!text) return [];
+
+  const seen  = new Set();
+  const items = [];
+
+  for (const raw of text.split('\n')) {
+    const line = raw.trim();
+    if (!line || line.length < 4) continue;
+    if (isSkipLine(line))         continue;
+
+    const item = extractItem(line);
+    if (!item) continue;
+
+    // Deduplicar
+    const key = item.descripcion + '|' + item.precioUnitario.toFixed(2);
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    items.push(item);
+  }
+
+  return items;
+}
+
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââ
+   INTERFAZ â REVISIÃN
+âââââââââââââââââââââââââââââââââââââââââââââââââââ */
+function showReview(items) {
+  document.getElementById('reviewCard').style.display = 'block';
+  const msg = document.getElementById('reviewMsg');
+
+  if (items.length === 0) {
+    msg.innerHTML = `<div class="alert alert-warning">
+      â ï¸ No se detectaron Ã­tems automÃ¡ticamente. Puede deberse a que la factura tiene un formato inusual o la imagen es de baja calidad.
+      PodÃ©s agregar los repuestos manualmente con el botÃ³n <strong>+ Agregar Ã­tem</strong>.
+    </div>`;
+    addEmptyRow();
+  } else {
+    msg.innerHTML = `<div class="alert alert-success">
+      â Se detectaron <strong>${items.length} Ã­tem${items.length !== 1 ? 's' : ''}</strong>.
+      RevisÃ¡ los datos antes de guardar â podÃ©s editar cualquier celda.
+    </div>`;
+    items.forEach(addRow);
+  }
+}
+
+function addRow(item = {}) {
+  const tbody = document.getElementById('itemsBody');
+  const tr    = document.createElement('tr');
+  tr.innerHTML = `
+    <td><input type="text"   class="ic" value="${esc(item.codigo || '')}"       placeholder="COD-001"></td>
+    <td><input type="text"   class="id" value="${esc(item.descripcion || '')}"   placeholder="Nombre del repuesto"></td>
+    <td><input type="number" class="iq" value="${item.cantidad || 1}"            min="0.01" step="0.01" style="text-align:right"></td>
+    <td><input type="number" class="ip" value="${item.precioUnitario ? item.precioUnitario.toFixed(2) : ''}" min="0" step="0.01" placeholder="0,00" style="text-align:right"></td>
+    <td><button class="del-btn" onclick="this.closest('tr').remove()" title="Eliminar fila">â</button></td>
+  `;
+  tbody.appendChild(tr);
+}
+
+function addEmptyRow() { addRow({}); }
+
+function esc(s) {
+  return String(s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââ
+   GUARDAR EN CATÃLOGO
+âââââââââââââââââââââââââââââââââââââââââââââââââââ */
+function getTableItems() {
+  return [...document.querySelectorAll('#itemsBody tr')].map(tr => ({
+    codigo:        tr.querySelector('.ic').value.trim().toUpperCase(),
+    descripcion:   tr.querySelector('.id').value.trim().toUpperCase(),
+    cantidad:      parseFloat(tr.querySelector('.iq').value) || 1,
+    precioUnitario: parseFloat(tr.querySelector('.ip').value) || 0,
+  })).filter(i => i.descripcion);
+}
+
+function saveItems() {
+  const items = getTableItems();
+  if (!items.length) { alert('No hay Ã­tems para guardar.'); return; }
+
+  const catalog = loadCatalogData();
+  const dateStr = new Date().toLocaleDateString('es-AR');
+  const now     = new Date().toISOString();
+
+  let added = 0, updated = 0;
+
+  for (const item of items) {
+    const key      = normKey(item.descripcion);
+    const existing = catalog[key];
+
+    if (existing) {
+      existing.precioUnitario      = item.precioUnitario;
+      existing.ultimaActualizacion = now;
+      existing.ultimaFactura       = dateStr;
+      existing.veces               = (existing.veces || 0) + 1;
+      if (item.codigo && !existing.codigo) existing.codigo = item.codigo;
+      updated++;
+    } else {
+      catalog[key] = {
+        codigo: item.codigo, descripcion: item.descripcion,
+        precioUnitario: item.precioUnitario,
+        ultimaActualizacion: now, ultimaFactura: dateStr, veces: 1,
+      };
+      added++;
+    }
+  }
+
+  invoiceCount = (invoiceCount || 0) + 1;
+  localStorage.setItem('tallerInvoiceCount', invoiceCount);
+  saveCatalogData(catalog);
+
+  const msg = [];
+  if (added)   msg.push(`${added} nuevo${added   !== 1 ? 's' : ''}`);
+  if (updated) msg.push(`${updated} actualizado${updated !== 1 ? 's' : ''}`);
+  alert(`â Guardado: ${msg.join(', ')}.`);
+  resetUpload();
+}
+
+function normKey(s) { return s.toLowerCase().trim().replace(/\s+/g, ' '); }
+
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââ
+   STORAGE
+âââââââââââââââââââââââââââââââââââââââââââââââââââ */
+function loadCatalogData() {
+  try { return JSON.parse(localStorage.getItem('tallerCatalog') || '{}'); }
+  catch { return {}; }
+}
+function saveCatalogData(data) {
+  localStorage.setItem('tallerCatalog', JSON.stringify(data));
+}
+
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââ
+   CATÃLOGO â RENDER
+âââââââââââââââââââââââââââââââââââââââââââââââââââ */
+function renderCatalog(filter = '') {
+  catalogData = loadCatalogData();
+  invoiceCount = parseInt(localStorage.getItem('tallerInvoiceCount') || '0');
+
+  const entries = Object.values(catalogData);
+
+  document.getElementById('statItems').textContent    = entries.length;
+  document.getElementById('statInvoices').textContent = invoiceCount;
+
+  const sorted = [...entries].sort((a, b) =>
+    new Date(b.ultimaActualizacion) - new Date(a.ultimaActualizacion));
+  document.getElementById('statDate').textContent =
+    sorted.length ? new Date(sorted[0].ultimaActualizacion).toLocaleDateString('es-AR') : 'â';
+
+  const q = filter.toLowerCase();
+  const visible = entries.filter(e =>
+    e.descripcion.toLowerCase().includes(q) ||
+    (e.codigo && e.codigo.toLowerCase().includes(q))
+  ).sort((a, b) => a.descripcion.localeCompare(b.descripcion, 'es'));
+
+  document.getElementById('catCount').textContent = `${visible.length} Ã­tem${visible.length !== 1 ? 's' : ''}`;
+
+  const tbody = document.getElementById('catalogBody');
+  const empty = document.getElementById('catEmpty');
+  tbody.innerHTML = '';
+
+  if (visible.length === 0) {
+    empty.style.display = 'block';
+    return;
+  }
+  empty.style.display = 'none';
+
+  for (const e of visible) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td style="font-family:monospace;font-size:.79rem;color:var(--muted)">${esc(e.codigo || 'â')}</td>
+      <td style="font-weight:500">${esc(e.descripcion)}</td>
+      <td style="text-align:right;font-weight:700;color:var(--primary)">
+        $${fmtPrice(e.precioUnitario)}
+      </td>
+      <td style="font-size:.82rem;color:var(--muted)">${esc(e.ultimaFactura || 'â')}</td>
+      <td style="text-align:center"><span class="badge">${e.veces || 1}Ã</span></td>
+      <td>
+        <button class="del-btn"
+          onclick="delFromCatalog('${esc(normKey(e.descripcion))}')"
+          title="Eliminar">â</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  }
+}
+
+function filterCatalog() {
+  renderCatalog(document.getElementById('searchInput').value);
+}
+
+function delFromCatalog(key) {
+  if (!confirm('Â¿Eliminar este repuesto del catÃ¡logo?')) return;
+  const cat = loadCatalogData();
+  delete cat[key];
+  saveCatalogData(cat);
+  renderCatalog(document.getElementById('searchInput').value);
+}
+
+function clearCatalog() {
+  if (!confirm('â ï¸ Â¿Limpiar TODO el catÃ¡logo? Esta acciÃ³n no se puede deshacer.')) return;
+  localStorage.removeItem('tallerCatalog');
+  localStorage.removeItem('tallerInvoiceCount');
+  renderCatalog();
+}
+
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââ
+   EXPORTAR CSV
+âââââââââââââââââââââââââââââââââââââââââââââââââââ */
+function exportCSV() {
+  const entries = Object.values(loadCatalogData());
+  if (!entries.length) { alert('El catÃ¡logo estÃ¡ vacÃ­o.'); return; }
+
+  const rows = [['CÃ³digo','DescripciÃ³n','Ãltimo Precio','Ãltima Factura','Veces registrado']];
+  entries
+    .sort((a, b) => a.descripcion.localeCompare(b.descripcion, 'es'))
+    .forEach(e => rows.push([
+      e.codigo || '',
+      e.descripcion,
+      (e.precioUnitario || 0).toFixed(2).replace('.', ','),
+      e.ultimaFactura || '',
+      e.veces || 1,
+    ]));
+
+  const csv  = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(';')).join('\r\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url  = URL.createObjectURL(blob);
+  const a    = Object.assign(document.createElement('a'), {
+    href: url, download: `catalogo_repuestos_${new Date().toISOString().slice(0,10)}.csv`
+  });
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââ
+   UTILIDADES
+âââââââââââââââââââââââââââââââââââââââââââââââââââ */
+function setProgress(pct, label, detail) {
+  document.getElementById('progressBar').style.width   = pct + '%';
+  document.getElementById('progressLabel').textContent = label;
+  document.getElementById('progressDetail').textContent = detail;
+}
+
+function resetUpload() {
+  document.getElementById('progressCard').style.display = 'none';
+  document.getElementById('reviewCard').style.display   = 'none';
+  document.getElementById('rawCard').style.display      = 'none';
+  document.getElementById('itemsBody').innerHTML = '';
+  document.getElementById('reviewMsg').innerHTML = '';
+  document.getElementById('rawText').textContent = '';
+  document.getElementById('rawContent').style.display = 'none';
+  document.getElementById('rawIcon').textContent = 'â¼ Ver';
+  fileInput.value = '';
+  currentItems = [];
+}
+
+function toggleRaw() {
+  const c = document.getElementById('rawContent');
+  const i = document.getElementById('rawIcon');
+  const v = c.style.display !== 'none';
+  c.style.display = v ? 'none' : 'block';
+  i.textContent   = v ? 'â¼ Ver' : 'â² Ocultar';
+}
+
+function fmtPrice(n) {
+  if (n == null) return 'â';
+  return new Intl.NumberFormat('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(n);
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+/* âââââââââââââââââââââââââââââââââââââââââââââââââââ
+   INIT
+âââââââââââââââââââââââââââââââââââââââââââââââââââ */
+renderCatalog();
 </script>
 </body>
 </html>
